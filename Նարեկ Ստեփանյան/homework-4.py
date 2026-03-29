@@ -20,7 +20,7 @@ VOCAB_SIZE  = 10_000
 EMBED_DIM   = 100
 HIDDEN_DIM  = 128
 NUM_LAYERS  = 1
-BATCH_SIZE  = 8       # small because sample is small
+BATCH_SIZE  = 8
 LR          = 0.001
 EPOCHS      = 10
 MAX_LEN     = 256
@@ -29,12 +29,7 @@ DEVICE      = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"PyTorch : {torch.__version__}")
 print(f"Device  : {DEVICE}\n")
 
-# ──────────────────────────────────────────────────────────
-# 1. INLINE IMDB SAMPLE  (replace this block with full
-#    dataset loader when running on Colab / full data)
-# ──────────────────────────────────────────────────────────
 INLINE_DATA = [
-    # (label, review)   1 = positive, 0 = negative
     (1, "One of the other reviewers has mentioned that after watching just 1 Oz episode you'll be hooked. They are right, as this is exactly what happened with me. The first thing that struck me about Oz was its brutality and unflinching onscreen violence, which set in right from the word go."),
     (1, "A wonderful little production. The filming technique is very unassuming, very old Hollywood quality. The acting is very good, down to the bit parts. The music is great. The story and the screenplay are great."),
     (1, "I thought this was a wonderful way to spend time on a too hot summer weekend, sitting in the air conditioned theater and watching this light-hearted comedy. The plot was implausible and a bit ridiculous, but it was intentional and worked perfectly."),
@@ -65,7 +60,7 @@ INLINE_DATA = [
     (0, "Avoid. The filmmakers mistake loudness for excitement and confusion for complexity. By the midpoint I had completely stopped caring about any of the characters. A thoroughly unpleasant and unrewarding experience."),
     (0, "The worst kind of Hollywood garbage. Cynically manufactured to appeal to the lowest common denominator. The script feels like it was written by a committee over a long weekend and the direction is equally uninspired."),
     (1, "Beautifully shot and brilliantly acted. This film deserves all the praise it has received and more. The central relationship feels utterly real and the emotional payoff in the final act is genuinely devastating in the best way."),
-    # ── 20 more for a total of 50 ──
+
     (1, "Genuinely one of the finest films to come out of Hollywood in a decade. Sharp writing, superb direction, and a lead performance that is simply breathtaking. I cannot recommend this highly enough."),
     (0, "A muddled and thoroughly boring attempt at drama. The film tries very hard to be profound but succeeds only in being pretentious and dull. A complete waste of the considerable talents involved."),
     (1, "Funny, touching, and wonderfully crafted. This film has everything you could want from an evening at the movies. The ensemble cast is outstanding and the director keeps things moving at exactly the right pace."),
@@ -105,9 +100,6 @@ test_labels  = [l for l, _ in raw_test]
 print(f"Inline sample  →  train: {len(train_texts)}, test: {len(test_texts)}")
 print("NOTE: Replace INLINE_DATA section with full IMDB loader for real training.\n")
 
-# ──────────────────────────────────────────────────────────
-# 2. VOCABULARY & TOKENISATION
-# ──────────────────────────────────────────────────────────
 def simple_tokenize(text):
     text = re.sub(r"<[^>]+>", " ", text)
     text = re.sub(r"[^a-zA-Z0-9\s]", " ", text)
@@ -135,9 +127,6 @@ y_train = np.array(train_labels, dtype=np.float32)
 y_test  = np.array(test_labels,  dtype=np.float32)
 print(f"x_train : {x_train.shape},  x_test : {x_test.shape}\n")
 
-# ──────────────────────────────────────────────────────────
-# 3. DATALOADERS
-# ──────────────────────────────────────────────────────────
 train_loader = DataLoader(
     TensorDataset(torch.from_numpy(x_train), torch.from_numpy(y_train)),
     batch_size=BATCH_SIZE, shuffle=True, num_workers=0
@@ -147,11 +136,7 @@ test_loader = DataLoader(
     batch_size=BATCH_SIZE, num_workers=0
 )
 
-# ──────────────────────────────────────────────────────────
-# 4. MODEL
-# ──────────────────────────────────────────────────────────
 class SentimentClassifier(nn.Module):
-    """Embedding → RNN/LSTM/GRU → FC(1) → Sigmoid"""
     def __init__(self, rnn_type: str):
         super().__init__()
         assert rnn_type in ("RNN", "LSTM", "GRU")
@@ -173,9 +158,6 @@ class SentimentClassifier(nn.Module):
     def n_params(self):
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
-# ──────────────────────────────────────────────────────────
-# 5. TRAINING
-# ──────────────────────────────────────────────────────────
 def train_model(rnn_type: str):
     model     = SentimentClassifier(rnn_type).to(DEVICE)
     optimizer = Adam(model.parameters(), lr=LR)
@@ -206,9 +188,6 @@ def train_model(rnn_type: str):
               f"{time.time()-t0:>5.2f}s")
     return model
 
-# ──────────────────────────────────────────────────────────
-# 6. EVALUATION
-# ──────────────────────────────────────────────────────────
 def evaluate_model(model, rnn_type: str):
     model.eval()
     all_preds, all_labels = [], []
@@ -237,17 +216,11 @@ def evaluate_model(model, rnn_type: str):
     return dict(model=rnn_type, accuracy=acc, precision=prec,
                 recall=rec, f1=f1, cm=cm)
 
-# ──────────────────────────────────────────────────────────
-# 7. RUN ALL THREE ARCHITECTURES
-# ──────────────────────────────────────────────────────────
 results = []
 for arch in ("RNN", "LSTM", "GRU"):
     mdl = train_model(arch)
     results.append(evaluate_model(mdl, arch))
 
-# ──────────────────────────────────────────────────────────
-# 8. SUMMARY TABLE
-# ──────────────────────────────────────────────────────────
 print(f"\n\n{'='*60}")
 print("  FINAL COMPARISON — Test Set")
 print(f"{'='*60}")
